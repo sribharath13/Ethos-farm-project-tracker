@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ethos Farm Heathrow Project Tracker</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 20px;
+      background-color: #f4f4f4;
+      color: #333;
+    }
+    h1 {
+      font-size: 28px;
+      margin-bottom: 20px;
+      color: #222;
+      text-align: center;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+      background-color: #fff;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    th, td {
+      padding: 12px;
+      border: 1px solid #ddd;
+      text-align: left;
+    }
+    th {
+      background-color: #007bff;
+      color: #fff;
+    }
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    tr:hover {
+      background-color: #f1f1f1;
+    }
+    button, input, select {
+      padding: 10px 15px;
+      margin: 5px;
+      cursor: pointer;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background-color: #fff;
+      color: #333;
+    }
+    button {
+      background-color: #007bff;
+      color: #fff;
+      border-color: #007bff;
+    }
+    button:hover {
+      background-color: #0056b3;
+      border-color: #00408d;
+    }
+    .status {
+      padding: 5px;
+      border-radius: 5px;
+      text-align: center;
+      color: #fff;
+    }
+    .Completed {
+      background-color: #28a745;
+    }
+    .OnTime {
+      background-color: #007bff;
+    }
+    .InProgress {
+      background-color: #ffc107;
+      color: #333;
+    }
+    #gantt_chart, #static_chart {
+      width: 100%;
+      height: 400px;
+      margin-bottom: 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    .form-group input, .form-group select {
+      width: 100%;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Ethos Farm Heathrow Project Tracker</h1>
+
+    <table id="taskTable">
+      <thead>
+        <tr>
+          <th>Task</th>
+          <th>Status</th>
+          <th>Start Date</th>
+          <th>End Date</th>
+          <th>Location</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="taskBody">
+        <!-- Task rows will be dynamically added here -->
+      </tbody>
+    </table>
+
+    <div class="form-group">
+      <label for="taskName">Task Name</label>
+      <input type="text" id="taskName" placeholder="Task Name">
+    </div>
+    <div class="form-group">
+      <label for="taskStatus">Status</label>
+      <select id="taskStatus">
+        <option value="On Time">On Time</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Completed">Completed</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="taskStartDate">Start Date</label>
+      <input type="date" id="taskStartDate">
+    </div>
+    <div class="form-group">
+      <label for="taskEndDate">End Date</label>
+      <input type="date" id="taskEndDate">
+    </div>
+    <div class="form-group">
+      <label for="location">Location</label>
+      <select id="parentTask">
+        <!-- Options will be dynamically added here -->
+      </select>
+    </div>
+    <button onclick="addTask()">Add Task</button>
+
+    <div id="gantt_chart"></div>
+    <div id="static_chart"></div>
+
+    <button onclick="saveAsJson()">Save as JSON</button>
+    <input type="file" id="fileInput" onchange="loadFromJson(event)" />
+  </div>
+
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+  <script>
+    google.charts.load('current', { 'packages': ['gantt', 'corechart'] });
+    google.charts.setOnLoadCallback(drawCharts);
+
+    let taskData = [
+      { id: 'T2', task: 'Terminal 2', status: 'On Time', startDate: '2022-10-18', endDate: '2022-12-01', location: 'Terminal 2' },
+      { id: 'T3', task: 'Terminal 3', status: 'Completed', startDate: '2022-10-20', endDate: '2022-11-15', location: 'Terminal 3' },
+      { id: 'T4', task: 'Terminal 4', status: 'In Progress', startDate: '2022-11-01', endDate: '2023-01-01', location: 'Terminal 4' },
+      { id: 'T5', task: 'Terminal 5', status: 'On Time', startDate: '2022-11-10', endDate: '2023-02-01', location: 'Terminal 5' },
+      { id: 'SP1', task: 'Subproject 1 for Terminal 2', status: 'In Progress', startDate: '2022-11-01', endDate: '2022-11-15', location: 'Terminal 2' },
+      { id: 'SP2', task: 'Subproject 2 for Terminal 2', status: 'Completed', startDate: '2022-11-05', endDate: '2022-11-10', location: 'Terminal 2' },
+    ];
+
+    function drawCharts() {
+      drawGanttChart();
+      drawStaticChart();
+    }
+
+    function drawGanttChart() {
+      const data = new google.visualization.DataTable();
+      data.addColumn('string', 'Task ID');
+      data.addColumn('string', 'Task Name');
+      data.addColumn('string', 'Resource');
+      data.addColumn('date', 'Start Date');
+      data.addColumn('date', 'End Date');
+      data.addColumn('number', 'Duration');
+      data.addColumn('number', 'Percent Complete');
+      data.addColumn('string', 'Dependencies');
+
+      const now = new Date();
+
+      taskData.forEach(task => {
+        const startDate = new Date(task.startDate);
+        const endDate = new Date(task.endDate);
+        const duration = (endDate - startDate) / (1000 * 60 * 60 * 24); // in days
+        const progress = task.status === 'Completed' ? 100 : Math.min(Math.max((now - startDate) / (endDate - startDate) * 100, 0), 100);
+        data.addRow([
+          task.id,
+          task.task,
+          task.location,
+          startDate,
+          endDate,
+          duration,
+          progress,
+          null // No dependencies
+        ]);
+      });
+
+      const options = {
+        height: 400,
+        gantt: {
+          trackHeight: 30,
+          criticalPathEnabled: true,
+          labelStyle: {
+            fontName: 'Arial',
+            fontSize: 12,
+            color: '#333'
+          },
+          arrow: {
+            angle: 100,
+            width: 5,
+            color: 'gray',
+            radius: 0
+          },
+          barHeight: 20,
+          barCornerRadius: 5
+        }
+      };
+
+      const chart = new google.visualization.Gantt(document.getElementById('gantt_chart'));
+      chart.draw(data, options);
+    }
+
+    function drawStaticChart() {
+      const locationCounts = taskData.reduce((counts, task) => {
+        const location = task.location || 'Independent';
+        counts[location] = (counts[location] || 0) + 1;
+        return counts;
+      }, {});
+
+      const chartData = new google.visualization.DataTable();
+      chartData.addColumn('string', 'Location');
+      chartData.addColumn('number', 'Number of Projects');
+
+      Object.entries(locationCounts).forEach(([location, count]) => {
+        chartData.addRow([location, count]);
+      });
+
+      const options = {
+        title: 'Number of Projects per Location',
+        pieHole: 0.4,
+        pieSliceText: 'label',
+        height: 400
+      };
+
+      const chart = new google.visualization.PieChart(document.getElementById('static_chart'));
+      chart.draw(chartData, options);
+    }
+
+    function renderTaskTable() {
+      const tbody = document.getElementById('taskBody');
+      tbody.innerHTML = '';
+
+      taskData.forEach(task => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${task.task}</td>
+          <td class="${task.status.replace(/\s+/g, '')} status">${task.status}</td>
+          <td>${task.startDate}</td>
+          <td>${task.endDate}</td>
+          <td>${task.location || 'Independent'}</td>
+          <td><button onclick="deleteTask('${task.id}')">Delete</button></td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      // Re-render location options
+      const parentTaskDropdown = document.getElementById('parentTask');
+      const locations = [...new Set(taskData.map(task => task.location).filter(location => location))];
+      parentTaskDropdown.innerHTML = '<option value="">Independent (No Location)</option>';
+      locations.forEach(location => {
+        const option = document.createElement('option');
+        option.value = location;
+        option.text = location;
+        parentTaskDropdown.appendChild(option);
+      });
+    }
+
+    function changeTaskStatus(id, newStatus) {
+      const task = taskData.find(task => task.id === id);
+      if (task) {
+        task.status = newStatus;
+        renderTaskTable();
+        drawCharts();
+      }
+    }
+
+    function changeTaskDate(id, dateType, newDate) {
+      const task = taskData.find(task => task.id === id);
+      if (task) {
+        task[dateType] = newDate;
+        renderTaskTable();
+        drawCharts();
+      }
+    }
+
+    function addTask() {
+      const taskName = document.getElementById('taskName').value;
+      const taskStatus = document.getElementById('taskStatus').value;
+      const taskStartDate = document.getElementById('taskStartDate').value;
+      const taskEndDate = document.getElementById('taskEndDate').value;
+      const location = document.getElementById('parentTask').value;
+
+      if (taskName && taskStartDate && taskEndDate) {
+        if (new Date(taskStartDate) > new Date(taskEndDate)) {
+          alert('End date cannot be before start date.');
+          return;
+        }
+
+        taskData.push({
+          id: generateUniqueId(),
+          task: taskName,
+          status: taskStatus,
+          startDate: taskStartDate,
+          endDate: taskEndDate,
+          location: location ? location : null
+        });
+
+        renderTaskTable();
+        drawCharts();
+      } else {
+        alert('Please fill in all fields!');
+      }
+    }
+
+    function deleteTask(id) {
+      taskData = taskData.filter(task => task.id !== id); // Remove task
+      renderTaskTable();
+      drawCharts();
+    }
+
+    function getTaskNameById(id) {
+      const task = taskData.find(task => task.id === id);
+      return task ? task.task : '';
+    }
+
+    function generateUniqueId() {
+      return 'task_' + Date.now(); // Simple unique ID generation
+    }
+
+    function saveAsJson() {
+      const json = JSON.stringify(taskData, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'project_data.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function loadFromJson(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            taskData = JSON.parse(e.target.result);
+            renderTaskTable();
+            drawCharts();
+          } catch (error) {
+            alert('Failed to load task data: ' + error.message);
+          }
+        };
+        reader.readAsText(file);
+      } else {
+        alert('No file selected.');
+      }
+    }
+
+    // Initial render
+    renderTaskTable();
+    drawCharts();
+  </script>
+</body>
+</html>
